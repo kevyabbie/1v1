@@ -5,7 +5,7 @@ Manages matchmaking queues for 2v2, 3v3, 4v4
 """
 
 import discord
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 from team_matchmaking_part2 import TeamMatch
 import random
 

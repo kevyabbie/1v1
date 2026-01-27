@@ -601,7 +601,9 @@ class MatchmakingSystem:
                 
                 winner_stats.points += WIN_POINTS
                 winner_stats.wins += 1
-                loser_stats.points += LOSS_POINTS
+                
+                # Apply loss points but prevent going below 0
+                loser_stats.points = max(0, loser_stats.points + LOSS_POINTS)
                 loser_stats.losses += 1
                 
                 self.save_stats()
@@ -617,6 +619,10 @@ class MatchmakingSystem:
                     value=f"```\n{match.player1_score}-{match.player2_score}\n```",
                     inline=False
                 )
+                
+                # Calculate actual points change for display
+                loser_points_change = loser_stats.points - (loser_stats.points - LOSS_POINTS if loser_stats.points >= abs(LOSS_POINTS) else loser_stats.points)
+                
                 embed.add_field(
                     name="Points",
                     value=f"**{winner.display_name}:** +{WIN_POINTS} points (Total: {winner_stats.points})\n"
@@ -692,9 +698,9 @@ class MatchmakingSystem:
         canceller = match.player1 if user.id == match.player1.id else match.player2
         other_player = match.player2 if user.id == match.player1.id else match.player1
         
-        # Apply penalty to canceller
+        # Apply penalty to canceller but prevent going below 0
         canceller_stats = self.get_or_create_stats(canceller)
-        canceller_stats.points += CANCEL_PENALTY
+        canceller_stats.points = max(0, canceller_stats.points + CANCEL_PENALTY)
         self.save_stats()
         
         # Cancel the match

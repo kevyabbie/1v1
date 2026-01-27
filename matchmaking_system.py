@@ -152,6 +152,16 @@ class MatchmakingSystem:
     
     async def start_matchmaking(self, interaction: discord.Interaction):
         """Start looking for a match"""
+        # RESTRICTION: Only allow matchmaking in specific channel
+        ALLOWED_CHANNEL_ID = 1465526001110093834
+        
+        if interaction.channel_id != ALLOWED_CHANNEL_ID:
+            await interaction.response.send_message(
+                f"❌ Matchmaking can only be used in <#{ALLOWED_CHANNEL_ID}>!",
+                ephemeral=True
+            )
+            return
+        
         channel_id = interaction.channel_id
         user = interaction.user
         

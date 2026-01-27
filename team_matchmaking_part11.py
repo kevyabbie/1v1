@@ -25,7 +25,7 @@ class Tournament5v5System:
         self.party_system = party_system
         self.pending_challenges: Dict[int, int] = {}  # challenger_host_id -> challenged_host_id
         self.active_matches: Dict[int, Tournament5v5Match] = {}  # thread_id -> Match
-        self.ALLOWED_CHANNEL_ID = 1465526001110093834
+        self.ALLOWED_CHANNEL_ID = 1465766701814517770
     
     async def send_challenge(self, interaction: discord.Interaction, opponent: discord.Member):
         """Host challenges another party host to 5v5"""
@@ -264,7 +264,7 @@ class Tournament5v5System:
             attacking_members = match.get_team_members(match.attacking_team)
             killer_player = attacking_members[match.selected_killer_player_index]
             embed.add_field(
-                name="⚔️ Killer",
+                name="Killer",
                 value=f"{killer_player.mention}\n{match.selected_killer_character}",
                 inline=True
             )
@@ -285,7 +285,7 @@ class Tournament5v5System:
                 picks_text.append(f"{i+1}. {player.display_name}: {pick}")
             
             embed.add_field(
-                name="🏃 Survivor Picks",
+                name="Survivor Picks",
                 value="\n".join(picks_text),
                 inline=False
             )

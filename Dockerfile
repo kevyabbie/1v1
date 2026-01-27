@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy application files
 COPY discordbot.py .
-COPY matchmaking_1v1.py .
+COPY team_matchmaking_1v1.py .
 COPY team_matchmaking_part1.py .
 COPY team_matchmaking_part2.py .
 COPY team_matchmaking_part3.py .

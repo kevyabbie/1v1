@@ -16,9 +16,21 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY bot_main.py .
+COPY discordbot.py .
 COPY matchmaking_1v1.py .
+COPY team_matchmaking_part2.py .
+COPY team_matchmaking_part3.py .
+COPY team_matchmaking_part6.py .
+COPY team_matchmaking_part7.py .
+COPY team_matchmaking_part8.py .
+COPY team_matchmaking_part9.py .
+COPY team_matchmaking_part10.py .
+COPY team_matchmaking_part11.py .
+COPY team_matchmaking_part12.py .
+COPY team_matchmaking_part13.py .
+COPY team_matchmaking_part14.py .
+
 
 
 # Run the bot
-CMD ["python", "bot_main.py"]
+CMD ["python", "discordbot.py"]

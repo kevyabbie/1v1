@@ -149,7 +149,7 @@ class Matchmaking1v1System:
         )
         embed.add_field(
             name="How to Join",
-            value="Type `/1v1` to accept the challenge!",
+            value="Type `/findmatch` to accept the challenge!",
             inline=False
         )
         return embed
@@ -596,7 +596,7 @@ class Matchmaking1v1System:
 
 def setup_1v1_commands(tree: app_commands.CommandTree, matchmaking_1v1: Matchmaking1v1System):
     
-    @tree.command(name="1v1", description="Start or join a 1v1 match")
+    @tree.command(name="findmatch", description="Start or join a 1v1 match")
     async def start_1v1(interaction: discord.Interaction):
         await matchmaking_1v1.start_matchmaking(interaction)
     

@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY discord_botv2.3.7.py .
+COPY bot_main.py .
 COPY matchmaking_1v1.py .
 
 

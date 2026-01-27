@@ -27,11 +27,13 @@ from team_matchmaking_part14 import (
     handle_profile_main_set,
     handle_profile_stats_set
 )
+from team_matchmaking_1v1 import Matchmaking1v1System, setup_1v1_commands
 
 
 def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1v1=None):
     """
     Setup all commands for the bot
+    - 1v1 matchmaking
     - Party commands
     - Team matchmaking commands (2v2, 3v3, 4v4)
     - Multi-mode stats commands
@@ -46,6 +48,10 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
     team_mm_system.multi_mode_stats = multi_mode_stats  # Link stats system
     tournament_5v5_system = Tournament5v5System(party_system)
     tournament_5v5_system.multi_mode_stats = multi_mode_stats  # Link stats system
+    
+    # Initialize 1v1 system
+    matchmaking_1v1_system = Matchmaking1v1System(bot_client, multi_mode_stats)
+    setup_1v1_commands(tree, matchmaking_1v1_system)
     
     # ==================== PARTY COMMANDS ====================
     
@@ -85,7 +91,7 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
     
     @tree.command(name="partydisband", description="Disband your party (host only)")
     async def disband_party(interaction: discord.Interaction):
-        success, message = party_system.disband_party(interaction.user)
+        success, message = party_system.leave_party(interaction.user)
         await interaction.response.send_message(message, ephemeral=True)
     
     @tree.command(name="partyinvite", description="Invite someone to your party")
@@ -169,55 +175,19 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
     
     @tree.command(name="2v2", description="Queue for 2v2 match with your party")
     async def queue_2v2(interaction: discord.Interaction):
-        success, message = await team_mm_system.start_queue(interaction, "2v2")
-        
-        if success and "Searching" in message:
-            embed = discord.Embed(
-                title="🔍 2v2 Matchmaking",
-                description=message,
-                color=discord.Color.blue()
-            )
-            embed.add_field(
-                name="Searching...",
-                value="Waiting for another team to join the queue.",
-                inline=False
-            )
-            await interaction.response.send_message(embed=embed)
-        elif not success:
-            await interaction.response.send_message(message, ephemeral=True)
+        await team_mm_system.queue_for_match(interaction, "2v2")
     
     @tree.command(name="3v3", description="Queue for 3v3 match with your party")
     async def queue_3v3(interaction: discord.Interaction):
-        success, message = await team_mm_system.start_queue(interaction, "3v3")
-        
-        if success and "Searching" in message:
-            embed = discord.Embed(
-                title="🔍 3v3 Matchmaking",
-                description=message,
-                color=discord.Color.blue()
-            )
-            await interaction.response.send_message(embed=embed)
-        elif not success:
-            await interaction.response.send_message(message, ephemeral=True)
+        await team_mm_system.queue_for_match(interaction, "3v3")
     
     @tree.command(name="4v4", description="Queue for 4v4 match with your party")
     async def queue_4v4(interaction: discord.Interaction):
-        success, message = await team_mm_system.start_queue(interaction, "4v4")
-        
-        if success and "Searching" in message:
-            embed = discord.Embed(
-                title="🔍 4v4 Matchmaking",
-                description=message,
-                color=discord.Color.blue()
-            )
-            await interaction.response.send_message(embed=embed)
-        elif not success:
-            await interaction.response.send_message(message, ephemeral=True)
+        await team_mm_system.queue_for_match(interaction, "4v4")
     
     @tree.command(name="cancelqueue", description="Cancel your matchmaking queue")
     async def cancel_queue(interaction: discord.Interaction):
-        success, message = await team_mm_system.cancel_queue(interaction)
-        await interaction.response.send_message(message, ephemeral=True)
+        await team_mm_system.cancel_queue(interaction)
     
     @tree.command(name="teamcancel", description="Cancel team match (host only, no penalty)")
     async def team_cancel(interaction: discord.Interaction):
@@ -520,6 +490,7 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
     setup_5v5_tournament_commands(tree, tournament_5v5_system, multi_mode_stats)
     
     return {
+        'matchmaking_1v1': matchmaking_1v1_system,
         'party_system': party_system,
         'team_mm_system': team_mm_system,
         'tournament_5v5_system': tournament_5v5_system,

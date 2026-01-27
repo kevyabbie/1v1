@@ -149,7 +149,7 @@ class Matchmaking1v1System:
         )
         embed.add_field(
             name="How to Join",
-            value="Type `/findmatch` to accept the challenge!",
+            value="Type `/1v1` to accept the challenge!",
             inline=False
         )
         return embed
@@ -562,11 +562,41 @@ class Matchmaking1v1System:
         
         del self.active_matches[thread_id]
         await match.thread.edit(archived=True)
+    
+    async def cancel_waiting(self, interaction: discord.Interaction):
+        """Cancel waiting for a 1v1 match"""
+        channel_id = interaction.channel_id
+        user = interaction.user
+        
+        # Check if user is waiting in this channel
+        if channel_id in self.waiting_players:
+            match = self.waiting_players[channel_id]
+            if match.player1.id == user.id:
+                # Delete the waiting match
+                del self.waiting_players[channel_id]
+                
+                # Delete or edit the waiting message
+                try:
+                    await match.waiting_message.delete()
+                except:
+                    pass
+                
+                await interaction.response.send_message(
+                    "✅ Cancelled 1v1 matchmaking.",
+                    ephemeral=True
+                )
+                return
+        
+        # Not in queue
+        await interaction.response.send_message(
+            "❌ You're not waiting for a 1v1 match in this channel!",
+            ephemeral=True
+        )
 
 
 def setup_1v1_commands(tree: app_commands.CommandTree, matchmaking_1v1: Matchmaking1v1System):
     
-    @tree.command(name="findmatch", description="Start or join a 1v1 match")
+    @tree.command(name="1v1", description="Start or join a 1v1 match")
     async def start_1v1(interaction: discord.Interaction):
         await matchmaking_1v1.start_matchmaking(interaction)
     
@@ -630,5 +660,9 @@ def setup_1v1_commands(tree: app_commands.CommandTree, matchmaking_1v1: Matchmak
     @tree.command(name="cancel", description="Cancel the current match (-8 points penalty)")
     async def cancel_match(interaction: discord.Interaction):
         await matchmaking_1v1.handle_cancel(interaction)
+    
+    @tree.command(name="cancel1v1", description="Cancel 1v1 matchmaking search (no penalty)")
+    async def cancel_1v1_search(interaction: discord.Interaction):
+        await matchmaking_1v1.cancel_waiting(interaction)
     
     return matchmaking_1v1

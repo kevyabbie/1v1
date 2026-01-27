@@ -60,15 +60,20 @@ class TeamMatchmakingSystem:
             "4v4": TeamQueue("4v4")
         }
         self.active_matches: Dict[int, TeamMatch] = {}  # thread_id -> TeamMatch
-        self.ALLOWED_CHANNEL_ID = 1465526001110093834
+        self.ALLOWED_CHANNELS = {
+            "2v2": 1465766622038986784,
+            "3v3": 1465766649956143205,
+            "4v4": 1465766666326638839
+        }
         self.multi_mode_stats = None  # Will be linked later
     
     async def queue_for_match(self, interaction: discord.Interaction, mode: str):
         """Queue a party for team matchmaking"""
-        # Check channel
-        if interaction.channel_id != self.ALLOWED_CHANNEL_ID:
+        # Check channel - each mode has its own channel
+        allowed_channel = self.ALLOWED_CHANNELS.get(mode)
+        if interaction.channel_id != allowed_channel:
             await interaction.response.send_message(
-                f"❌ Team matchmaking can only be used in <#{self.ALLOWED_CHANNEL_ID}>!",
+                f"❌ {mode.upper()} matchmaking can only be used in <#{allowed_channel}>!",
                 ephemeral=True
             )
             return

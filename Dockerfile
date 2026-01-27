@@ -21,7 +21,6 @@ COPY matchmaking_1v1.py .
 COPY team_matchmaking_part1.py .
 COPY team_matchmaking_part2.py .
 COPY team_matchmaking_part3.py .
-COPY team_matchmaking_part4.py .
 COPY team_matchmaking_part6.py .
 COPY team_matchmaking_part7.py .
 COPY team_matchmaking_part8.py .

@@ -27,6 +27,7 @@ from team_matchmaking_part14 import (
     handle_profile_main_set,
     handle_profile_stats_set
 )
+from team_matchmaking_1v1 import Matchmaking1v1System, setup_1v1_commands
 
 
 def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1v1=None):
@@ -46,6 +47,9 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
     team_mm_system.multi_mode_stats = multi_mode_stats  # Link stats system
     tournament_5v5_system = Tournament5v5System(party_system)
     tournament_5v5_system.multi_mode_stats = multi_mode_stats  # Link stats system
+    
+    # Initialize 1v1 matchmaking system
+    matchmaking_1v1_system = Matchmaking1v1System(bot_client, multi_mode_stats)
     
     # ==================== PARTY COMMANDS ====================
     
@@ -518,10 +522,16 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
     # Setup 5v5 tournament commands
     setup_5v5_tournament_commands(tree, tournament_5v5_system, multi_mode_stats)
     
+    # ==================== 1v1 MATCHMAKING COMMANDS ====================
+    
+    # Setup 1v1 matchmaking commands
+    setup_1v1_commands(tree, matchmaking_1v1_system)
+    
     return {
         'party_system': party_system,
         'team_mm_system': team_mm_system,
         'tournament_5v5_system': tournament_5v5_system,
         'multi_mode_stats': multi_mode_stats,
-        'profile_system': profile_system
+        'profile_system': profile_system,
+        'matchmaking_1v1_system': matchmaking_1v1_system
     }

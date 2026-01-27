@@ -132,6 +132,19 @@ class MatchmakingSystem:
                     for user_id_str, stats_dict in data.items():
                         user_id = int(user_id_str)
                         self.player_stats[user_id] = PlayerStats.from_dict(stats_dict)
+                
+                # AUTO-FIX: Fix any negative points on load
+                fixed_count = 0
+                for stats in self.player_stats.values():
+                    if stats.points < 0:
+                        print(f"Auto-fixing negative points for {stats.username}: {stats.points} → 0")
+                        stats.points = 0
+                        fixed_count += 1
+                
+                if fixed_count > 0:
+                    print(f"✅ Auto-fixed {fixed_count} player(s) with negative points")
+                    self.save_stats()  # Save the corrected data
+                    
             except Exception as e:
                 print(f"Error loading stats: {e}")
     

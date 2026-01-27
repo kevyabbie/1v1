@@ -21,4 +21,4 @@ COPY matchmaking_1v1.py .
 
 
 # Run the bot
-CMD ["python", "discord_botv2.3.7.py"]
+CMD ["python", "bot_main.py"]

@@ -18,7 +18,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application files
 COPY discord_botv2.3.7.py .
 COPY matchmaking_1v1.py .
-COPY matchmaking_part1.py .
 
 
 # Run the bot

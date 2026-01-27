@@ -882,4 +882,56 @@ def setup_matchmaking(bot_client, tree: app_commands.CommandTree):
         
         await interaction.response.send_message(embed=embed)
     
+    @tree.command(name="restorestats", description="[ADMIN] Restore lost leaderboard data")
+    async def restore_stats(interaction: discord.Interaction):
+        """Emergency command to restore the leaderboard if it gets wiped"""
+        
+        # Only allow specific user
+        ALLOWED_USER_ID = 822110342724190258
+        
+        if interaction.user.id != ALLOWED_USER_ID:
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
+        
+        # Backup data to restore
+        backup_data = {
+            "azkajhff": {"points": 45, "wins": 3, "losses": 0},
+            "kepinnotreal": {"points": 7, "wins": 1, "losses": 0},
+            "rajakarbiter": {"points": 0, "wins": 1, "losses": 1},
+            "twotimeing": {"points": 0, "wins": 0, "losses": 1},
+            "zeen_xd": {"points": 0, "wins": 1, "losses": 4},
+        }
+        
+        restored_count = 0
+        for username, stats_data in backup_data.items():
+            # Try to find the user in the server
+            user_found = None
+            for member in interaction.guild.members:
+                if member.name.lower() == username.lower():
+                    user_found = member
+                    break
+            
+            if user_found:
+                # Create or update stats
+                player_stats = matchmaking.get_or_create_stats(user_found)
+                player_stats.points = stats_data["points"]
+                player_stats.wins = stats_data["wins"]
+                player_stats.losses = stats_data["losses"]
+                restored_count += 1
+        
+        matchmaking.save_stats()
+        
+        embed = discord.Embed(
+            title="✅ Stats Restored",
+            description=f"Restored data for {restored_count} players",
+            color=discord.Color.green()
+        )
+        embed.add_field(
+            name="Restored Players",
+            value="\n".join([f"• {name}" for name in backup_data.keys()]),
+            inline=False
+        )
+        
+        await interaction.response.send_message(embed=embed)
+    
     return matchmaking

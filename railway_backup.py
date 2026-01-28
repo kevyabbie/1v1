@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-RAILWAY-COMPATIBLE BACKUP SYSTEM
-Works with ephemeral storage - uploads backups to Discord channel
-Perfect for Railway deployments where local storage is temporary
+RAILWAY-COMPATIBLE BACKUP SYSTEM WITH USER NOTIFICATIONS
+- Automatically backs up on restart (when you push to GitHub)
+- Sends notification to all users in the channel
+- Works with ephemeral storage
 """
 
 import json
@@ -442,14 +443,15 @@ def setup_railway_backup_commands(tree, client, backup_channel_id: int):
     return backup_system
 
 
-# Helper function for auto-backup on startup
-async def railway_auto_backup_on_startup(client, backup_channel_id: int):
+# Helper function for auto-backup on startup with user notifications
+async def railway_auto_backup_on_startup(client, backup_channel_id: int, notification_channel_id: Optional[int] = None):
     """
-    Create automatic backup when bot starts (Railway-compatible)
+    Create automatic backup when bot starts and notify users
     
     Args:
         client: Discord client
         backup_channel_id: Channel ID where backups will be posted
+        notification_channel_id: Channel ID where to send notification (optional, defaults to backup channel)
     """
     try:
         backup_channel = client.get_channel(backup_channel_id)
@@ -457,65 +459,119 @@ async def railway_auto_backup_on_startup(client, backup_channel_id: int):
             print(f"⚠️ Backup channel {backup_channel_id} not found!")
             return
         
+        # Create backup
         backup_system = RailwayBackupSystem(backup_channel_id)
-        await backup_system.create_backup(backup_channel, manual=False)
+        backup_success = await backup_system.create_backup(backup_channel, manual=False)
+        
+        if not backup_success:
+            return
+        
+        # Send notification to users
+        notification_channel = backup_channel
+        if notification_channel_id:
+            notification_channel = client.get_channel(notification_channel_id)
+            if not notification_channel:
+                notification_channel = backup_channel
+        
+        # Get all users who have data
+        all_users = set()
+        
+        # Get users from stats
+        if os.path.exists(backup_system.stats_file):
+            with open(backup_system.stats_file, 'r') as f:
+                stats_data = json.load(f)
+                for mode, players in stats_data.items():
+                    for user_id in players.keys():
+                        all_users.add(int(user_id))
+        
+        # Get users from profiles
+        if os.path.exists(backup_system.profiles_file):
+            with open(backup_system.profiles_file, 'r') as f:
+                profiles_data = json.load(f)
+                for user_id in profiles_data.keys():
+                    all_users.add(int(user_id))
+        
+        # Create notification embed
+        embed = discord.Embed(
+            title="🔄 Bot Restarted & Data Backed Up!",
+            description="The bot has been restarted and your data has been automatically backed up.",
+            color=discord.Color.green()
+        )
+        
+        embed.add_field(
+            name="✅ What Happened",
+            value=(
+                "• Bot restarted (new update deployed)\n"
+                "• All player data backed up automatically\n"
+                "• Your stats, profiles, and banners are safe!"
+            ),
+            inline=False
+        )
+        
+        embed.add_field(
+            name="📊 Backup Info",
+            value=f"• **Players backed up:** {len(all_users)}\n"
+                  f"• **Backup location:** <#{backup_channel_id}>\n"
+                  f"• **Time:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🎮 Everything Still Works",
+            value="All your progress is saved! Continue playing normally.",
+            inline=False
+        )
+        
+        embed.set_footer(text="Your data is automatically backed up on every restart")
+        
+        # Create mentions string (limit to avoid spam)
+        if len(all_users) <= 50:
+            # Mention all users if 50 or fewer
+            mentions = " ".join([f"<@{uid}>" for uid in list(all_users)[:50]])
+            await notification_channel.send(
+                content=f"📢 Attention all players: {mentions}",
+                embed=embed
+            )
+        else:
+            # Just send embed without mentions if too many users
+            await notification_channel.send(
+                content=f"📢 **{len(all_users)} players** - Your data has been backed up!",
+                embed=embed
+            )
+        
+        print(f"✅ Sent restart notification to {len(all_users)} user(s)")
     
     except Exception as e:
-        print(f"❌ Auto-backup failed: {e}")
+        print(f"❌ Auto-backup or notification failed: {e}")
 
 
 if __name__ == "__main__":
     print("""
 ╔═══════════════════════════════════════════════════════════════════╗
-║              RAILWAY-COMPATIBLE BACKUP SYSTEM                     ║
+║       RAILWAY BACKUP SYSTEM WITH USER NOTIFICATIONS              ║
 ╚═══════════════════════════════════════════════════════════════════╝
 
-This backup system is designed for Railway deployments where local
-storage is ephemeral (deleted on restart).
+FEATURES:
+  ✅ Auto-backup on bot startup (when you push to GitHub)
+  ✅ Sends notification to ALL users in channel
+  ✅ Uploads backups to Discord (survives Railway restarts)
+  ✅ Manual backups via /backup command
+  ✅ Restore via /restore command
+  ✅ Single user backups via /backupuser command
 
-HOW IT WORKS:
-  1. Backups are uploaded to a Discord channel as file attachments
-  2. Download the files from Discord to restore later
-  3. No local storage needed - everything is in Discord!
+WHAT HAPPENS ON RESTART:
+  1. Bot detects restart (new GitHub commit deployed)
+  2. Creates automatic backup of all data
+  3. Uploads backup files to Discord channel
+  4. Sends notification mentioning ALL users
+  5. Users see: "Bot restarted & your data is backed up!"
 
 SETUP:
-  1. Create a private Discord channel for backups
-  2. Get the channel ID (right-click channel > Copy ID)
-  3. Use that channel ID when setting up the backup system
-
-FEATURES:
-  ✅ Auto-backup on bot startup (uploads to Discord)
-  ✅ Manual backups via /backup command
-  ✅ Restore via /restore command (reply to backup message)
-  ✅ Single user backups via /backupuser command
-  ✅ No local storage needed
-  ✅ Perfect for Railway, Render, Heroku, etc.
-
-INTEGRATION EXAMPLE:
-  ```python
-  from railway_backup import (
-      setup_railway_backup_commands,
-      railway_auto_backup_on_startup
+  await railway_auto_backup_on_startup(
+      client,
+      backup_channel_id=1234567890,
+      notification_channel_id=9876543210  # Where to notify users
   )
-  
-  # In your bot setup
-  BACKUP_CHANNEL_ID = 1234567890  # Your backup channel ID
-  
-  # Setup commands
-  setup_railway_backup_commands(tree, client, BACKUP_CHANNEL_ID)
-  
-  # In on_ready event
-  await railway_auto_backup_on_startup(client, BACKUP_CHANNEL_ID)
-  ```
 
-COMMANDS (In Discord):
-  /backup              - Create manual backup (admin only)
-  /backupuser <id>     - Backup specific user (admin only)
-  /restore             - Restore (reply to a backup message)
-
-RESTORE PROCESS:
-  1. Find the backup message in your backup channel
-  2. Reply to it with: /restore
-  3. Bot will download and restore the files
-  4. Restart bot for changes to take effect
+If notification_channel_id is not provided, notifications go to backup channel.
     """)

@@ -3,7 +3,7 @@ COMPLETE DISCORD MATCHMAKING BOT - MAIN FILE
 Combines all features from both bot versions
 1v1, 2v2, 3v3, 4v4, and 5v5 Tournament
 Optional socket server for remote control
-Railway-compatible backup system
+Railway-compatible backup system (optional)
 """
 
 import asyncio
@@ -20,11 +20,19 @@ from discord import app_commands
 # Import the complete matchmaking setup
 from team_matchmaking_part8 import setup_all_commands
 
-# Import Railway backup system
-from railway_backup import (
-    setup_railway_backup_commands,
-    railway_auto_backup_on_startup
-)
+# Try to import Railway backup system (optional)
+BACKUP_AVAILABLE = False
+try:
+    from railway_backup import (
+        setup_railway_backup_commands,
+        railway_auto_backup_on_startup
+    )
+    BACKUP_AVAILABLE = True
+    print("✅ Backup system loaded successfully")
+except ImportError as e:
+    print(f"⚠️  Backup system not available: {e}")
+    print("   Bot will run without backup functionality")
+    print("   To enable backups, add railway_backup.py to your project")
 
 # ================= CONFIG =================
 TOKEN = os.getenv("DISCORD_TOKEN", "YOUR_TOKEN_HERE")
@@ -126,8 +134,8 @@ class CompleteDiscordBot:
                 
                 logger.info("✅ All systems initialized successfully")
                 
-                # Setup Railway backup commands
-                if self.backup_channel_id > 0:
+                # Setup Railway backup commands (if available)
+                if BACKUP_AVAILABLE and self.backup_channel_id > 0:
                     logger.info("⚙️  Setting up backup system...")
                     setup_railway_backup_commands(
                         self.tree,
@@ -135,7 +143,9 @@ class CompleteDiscordBot:
                         self.backup_channel_id
                     )
                     logger.info("✅ Backup system initialized")
-                else:
+                elif not BACKUP_AVAILABLE:
+                    logger.warning("⚠️  Backup system not available (railway_backup.py not found)")
+                elif self.backup_channel_id == 0:
                     logger.warning("⚠️  BACKUP_CHANNEL_ID not set! Backups disabled.")
                     logger.warning("   Set BACKUP_CHANNEL_ID environment variable to enable backups.")
                 
@@ -150,15 +160,24 @@ class CompleteDiscordBot:
                 if len(synced) > 20:
                     logger.info(f"   ... and {len(synced) - 20} more commands")
                 
-                # Create automatic backup (Railway-compatible)
-                if self.backup_channel_id > 0:
+                # Create automatic backup (Railway-compatible) - if available
+                if BACKUP_AVAILABLE and self.backup_channel_id > 0:
                     logger.info("="*60)
-                    logger.info("📦 Creating automatic backup...")
-                    await railway_auto_backup_on_startup(
-                        self.client,
-                        self.backup_channel_id
-                    )
-                    logger.info("✅ Backup complete!")
+                    logger.info("📦 Creating automatic backup and notifying users...")
+                    try:
+                        # Get notification channel ID from environment or use backup channel
+                        notification_channel_id = int(os.getenv("NOTIFICATION_CHANNEL_ID", "0"))
+                        if notification_channel_id == 0:
+                            notification_channel_id = self.backup_channel_id
+                        
+                        await railway_auto_backup_on_startup(
+                            self.client,
+                            self.backup_channel_id,
+                            notification_channel_id
+                        )
+                        logger.info("✅ Backup complete and users notified!")
+                    except Exception as e:
+                        logger.error(f"❌ Backup failed: {e}")
                 
             except Exception as e:
                 logger.error(f"❌ Error during setup: {e}")
@@ -349,13 +368,24 @@ def main():
     """Main entry point"""
     logger.info("="*60)
     logger.info("COMPLETE DISCORD MATCHMAKING BOT")
-    logger.info("All Game Modes | Profile System | Admin Tools | Backups")
+    logger.info("All Game Modes | Profile System | Admin Tools")
     logger.info("="*60)
     
-    # Validate backup channel
-    if BACKUP_CHANNEL_ID == 0:
+    if not BACKUP_AVAILABLE:
         logger.warning("="*60)
-        logger.warning("⚠️  WARNING: BACKUP_CHANNEL_ID NOT SET!")
+        logger.warning("⚠️  BACKUP SYSTEM NOT LOADED")
+        logger.warning("="*60)
+        logger.warning("The railway_backup.py file was not found.")
+        logger.warning("Bot will run WITHOUT backup functionality.")
+        logger.warning("")
+        logger.warning("To enable backups:")
+        logger.warning("1. Add railway_backup.py to your project")
+        logger.warning("2. Create a backup channel and get its ID")
+        logger.warning("3. Set BACKUP_CHANNEL_ID environment variable")
+        logger.warning("="*60)
+    elif BACKUP_CHANNEL_ID == 0:
+        logger.warning("="*60)
+        logger.warning("⚠️  BACKUP_CHANNEL_ID NOT SET!")
         logger.warning("="*60)
         logger.warning("Backups are DISABLED!")
         logger.warning("")
@@ -364,8 +394,6 @@ def main():
         logger.warning("2. Right-click the channel > Copy ID")
         logger.warning("3. Set environment variable:")
         logger.warning("   BACKUP_CHANNEL_ID=<your_channel_id>")
-        logger.warning("")
-        logger.warning("Or edit this file and set BACKUP_CHANNEL_ID directly.")
         logger.warning("="*60)
     
     bot = CompleteDiscordBot(TOKEN, HOST, PORT, ENABLE_SOCKET, BACKUP_CHANNEL_ID)

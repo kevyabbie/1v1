@@ -28,7 +28,14 @@ from team_matchmaking_part14 import (
     handle_profile_stats_set
 )
 from team_matchmaking_1v1 import Matchmaking1v1System, setup_1v1_commands
-from ghost_player_commands import GhostPlayerSystem, setup_ghost_player_commands
+
+# Optional import for ghost player commands (DEBUG feature)
+try:
+    from ghost_player_commands import GhostPlayerSystem, setup_ghost_player_commands
+    GHOST_COMMANDS_AVAILABLE = True
+except ImportError:
+    GHOST_COMMANDS_AVAILABLE = False
+    print("⚠️ Ghost player commands not available (ghost_player_commands.py not found)")
 
 
 def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1v1=None):
@@ -52,8 +59,10 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
     # Initialize 1v1 matchmaking system
     matchmaking_1v1_system = Matchmaking1v1System(bot_client, multi_mode_stats)
     
-    # Initialize ghost player system (DEBUG)
-    ghost_system = GhostPlayerSystem(party_system)
+    # Initialize ghost player system (DEBUG) - only if available
+    ghost_system = None
+    if GHOST_COMMANDS_AVAILABLE:
+        ghost_system = GhostPlayerSystem(party_system)
     
     # ==================== PARTY COMMANDS ====================
     
@@ -339,7 +348,7 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
     async def survivor_autocomplete(interaction: discord.Interaction, current: str):
         from team_matchmaking_part10 import SURVIVORS
         filtered = [s for s in SURVIVORS if current.lower() in s.lower()] if current else SURVIVORS
-        return [app_commands.Choice(name=s, value=s) for s in filtered[:25]]
+        return [app_commands.Choice(name=s, value=s) for k in filtered[:25]]
     
     @tree.command(name="profileplaytime", description="Set your playtime hours")
     @app_commands.describe(hours="Total playtime in hours")
@@ -498,8 +507,10 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
     
     # ==================== GHOST PLAYER COMMANDS (DEBUG) ====================
     
-    # Setup ghost player commands
-    setup_ghost_player_commands(tree, ghost_system)
+    # Setup ghost player commands (only if module is available)
+    if GHOST_COMMANDS_AVAILABLE:
+        setup_ghost_player_commands(tree, ghost_system)
+        print("✅ Ghost player commands loaded successfully")
     
     return {
         'party_system': party_system,

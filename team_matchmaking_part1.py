@@ -1,7 +1,7 @@
 """
-TEAM MATCHMAKING SYSTEM - PART 1
-Party System
-Create parties, invite players, manage teams
+TEAM MATCHMAKING SYSTEM - PART 1 (FIXED)
+Party System with Party Name
+Create parties, invite players, manage teams, set party names
 """
 
 import discord
@@ -17,6 +17,14 @@ class Party:
         self.pending_invites: Dict[int, datetime] = {}  # user_id -> invite_time
         self.created_at = datetime.now()
         self.max_size = 5
+        self.party_name: str = f"{host.display_name}'s Party"  # NEW: Custom party name
+    
+    def set_party_name(self, name: str) -> bool:
+        """Set custom party name"""
+        if len(name) > 50:
+            return False
+        self.party_name = name
+        return True
     
     def add_member(self, member: discord.Member) -> bool:
         """Add member to party"""
@@ -64,7 +72,21 @@ class PartySystem:
         party = Party(host)
         self.parties[host.id] = party
         self.user_party_map[host.id] = host.id
-        return True, "✅ Party created! Use `/partyinvite @user` to invite members."
+        return True, f"✅ Party created: **{party.party_name}**\nUse `/partyinvite @user` to invite members."
+    
+    def set_party_name(self, host: discord.Member, name: str) -> Tuple[bool, str]:
+        """Set party name (host only)"""
+        party = self.parties.get(host.id)
+        if not party:
+            return False, "You don't have a party! Use `/party` to create one."
+        
+        if not party.is_host(host):
+            return False, "Only the host can change the party name!"
+        
+        if not party.set_party_name(name):
+            return False, "Party name too long! (Max 50 characters)"
+        
+        return True, f"✅ Party name changed to: **{party.party_name}**"
     
     def get_user_party(self, user: discord.Member) -> Optional[Party]:
         """Get the party a user is in"""
@@ -115,7 +137,7 @@ class PartySystem:
         del party.pending_invites[user.id]
         self.user_party_map[user.id] = host.id
         
-        return True, f"✅ Joined {host.display_name}'s party! ({party.get_size()}/{party.max_size})"
+        return True, f"✅ Joined **{party.party_name}**! ({party.get_size()}/{party.max_size})"
     
     def decline_invite(self, user: discord.Member, host: discord.Member) -> Tuple[bool, str]:
         """Decline party invite"""

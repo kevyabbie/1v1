@@ -98,16 +98,16 @@ class Tournament5v5System:
         
         # Show both teams with party names
         team_a_text = f"**Party: {party.party_name}**\n"
-        team_a_text += "\n".join([f"{i+1}. {m.mention} {'👑 (Host)' if i == 0 else ''}" for i, m in enumerate(party.members)])
+        team_a_text += "\n".join([f"{i+1}. {m.mention}{' (Ketua)' if i == 0 else ''}" for i, m in enumerate(party.members)])
         
         team_b_text = f"**Party: {opponent_party.party_name}**\n"
-        team_b_text += "\n".join([f"{i+1}. {m.mention} {'👑 (Host)' if i == 0 else ''}" for i, m in enumerate(opponent_party.members)])
+        team_b_text += "\n".join([f"{i+1}. {m.mention}{' (Ketua)' if i == 0 else ''}" for i, m in enumerate(opponent_party.members)])
         
         embed.add_field(name="🔵 Team A (Challenger)", value=team_a_text, inline=True)
         embed.add_field(name="🔴 Team B (Challenged)", value=team_b_text, inline=True)
         embed.add_field(
             name="Format",
-            value="**10 rounds** | Best of 10 wins\nHosts select maps, bans, and killer players\nPlayers pick their survivors\n**Score each round: 0-5 points**",
+            value="**10 rounds** | Best of 10 wins\nHosts select maps, bans, and killer players\nPlayers pick their survivors\n**Score each round: 0-7 points**",
             inline=False
         )
         embed.set_footer(text=f"{opponent.name}, use /acceptchallenge @{user.name} to accept!")
@@ -169,12 +169,12 @@ class Tournament5v5System:
         # Create starting embed
         embed = discord.Embed(
             title="⚔️ 5v5 TOURNAMENT STARTING!",
-            description=f"**{team_a_name}** vs **{team_b_name}**\n\n10 rounds of intense 1v5 combat!\n**Each round scored 0-5 points**",
+            description=f"**{team_a_name}** vs **{team_b_name}**\n\n10 rounds of intense 1v5 combat!\n**Each round scored 0-7 points**",
             color=discord.Color.gold()
         )
         
-        team_a_text = "\n".join([f"{i+1}. {m.mention} {'👑' if i == 0 else ''}" for i, m in enumerate(team_a)])
-        team_b_text = "\n".join([f"{i+1}. {m.mention} {'👑' if i == 0 else ''}" for i, m in enumerate(team_b)])
+        team_a_text = "\n".join([f"{i+1}. {m.mention}{' (Ketua)' if i == 0 else ''}" for i, m in enumerate(team_a)])
+        team_b_text = "\n".join([f"{i+1}. {m.mention}{' (Ketua)' if i == 0 else ''}" for i, m in enumerate(team_b)])
         
         embed.add_field(name=f"🔵 {team_a_name}", value=team_a_text, inline=True)
         embed.add_field(name=f"🔴 {team_b_name}", value=team_b_text, inline=True)

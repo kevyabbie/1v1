@@ -2,6 +2,7 @@
 """
 Railway Backup Script
 Backs up all player data files to timestamped backups
+Includes Discord bot integration for automated backups
 """
 
 import json
@@ -9,6 +10,9 @@ import os
 from datetime import datetime
 from pathlib import Path
 import shutil
+import discord
+from discord import app_commands
+from typing import Optional
 
 
 def create_backup():
@@ -34,6 +38,7 @@ def create_backup():
     
     backed_up = 0
     skipped = 0
+    backed_up_files = []
     
     for filename in files_to_backup:
         if os.path.exists(filename):
@@ -58,6 +63,11 @@ def create_backup():
                         print(f"   📊 Contains {len(data)} entries")
                 
                 backed_up += 1
+                backed_up_files.append({
+                    'original': filename,
+                    'backup': backup_filename,
+                    'size_kb': size_kb
+                })
                 
             except Exception as e:
                 print(f"❌ Error backing up {filename}: {e}")
@@ -72,7 +82,7 @@ def create_backup():
     print(f"   📁 Location: {backup_dir.absolute()}")
     print("=" * 60)
     
-    return backed_up > 0
+    return backed_up > 0, backed_up_files, timestamp
 
 
 def restore_from_backup(backup_file: str):
@@ -127,25 +137,33 @@ def list_backups():
     
     if not backup_dir.exists():
         print("📁 No backups directory found")
-        return
+        return []
     
     backups = sorted(backup_dir.glob("*.json"), reverse=True)
     
     if not backups:
         print("📁 No backups found")
-        return
+        return []
     
     print("=" * 60)
     print("📦 Available Backups:")
     print("=" * 60)
     
+    backup_list = []
     for backup in backups:
         size = backup.stat().st_size / 1024
         modified = datetime.fromtimestamp(backup.stat().st_mtime)
         print(f"📄 {backup.name}")
         print(f"   Size: {size:.2f} KB | Modified: {modified.strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        backup_list.append({
+            'name': backup.name,
+            'size_kb': size,
+            'modified': modified
+        })
     
     print("=" * 60)
+    return backup_list
 
 
 def show_stats_summary():
@@ -155,6 +173,8 @@ def show_stats_summary():
     print("📊 Current Stats Summary:")
     print("=" * 60)
     
+    summary = {}
+    
     # Multi-mode stats
     if os.path.exists("multi_mode_stats.json"):
         try:
@@ -163,6 +183,7 @@ def show_stats_summary():
                 print("\n🎮 Multi-Mode Stats:")
                 for mode, players in data.items():
                     print(f"   {mode}: {len(players)} players")
+                    summary[f"mode_{mode}"] = len(players)
         except Exception as e:
             print(f"   ❌ Error reading multi_mode_stats.json: {e}")
     
@@ -172,10 +193,12 @@ def show_stats_summary():
             with open("player_profiles.json", 'r') as f:
                 data = json.load(f)
                 print(f"\n👤 Player Profiles: {len(data)} profiles")
+                summary['profiles'] = len(data)
         except Exception as e:
             print(f"   ❌ Error reading player_profiles.json: {e}")
     
     print("=" * 60)
+    return summary
 
 
 def clean_old_backups(keep_count: int = 10):
@@ -185,7 +208,7 @@ def clean_old_backups(keep_count: int = 10):
     
     if not backup_dir.exists():
         print("📁 No backups directory found")
-        return
+        return 0
     
     # Group backups by base filename
     backup_groups = {}
@@ -218,6 +241,163 @@ def clean_old_backups(keep_count: int = 10):
         print("   ✅ No old backups to delete")
     else:
         print(f"   ✅ Deleted {deleted} old backup(s)")
+    
+    return deleted
+
+
+# ==================== DISCORD BOT INTEGRATION ====================
+
+ADMIN_USER_ID = 822110342724190258
+
+
+def railway_auto_backup_on_startup():
+    """
+    Automatically create a backup when the bot starts
+    This ensures there's always a recent backup available
+    """
+    try:
+        print("\n🔄 Creating automatic startup backup...")
+        success, files, timestamp = create_backup()
+        if success:
+            print(f"✅ Startup backup created: {timestamp}")
+            return True
+        else:
+            print("⚠️  No files to backup on startup")
+            return False
+    except Exception as e:
+        print(f"❌ Startup backup failed: {e}")
+        return False
+
+
+def setup_railway_backup_commands(tree: app_commands.CommandTree, bot_client):
+    """Setup backup commands for Discord bot"""
+    
+    @tree.command(name="backup", description="[ADMIN] Create a backup of all player data")
+    async def backup_command(interaction: discord.Interaction):
+        """Create backup of player data"""
+        if interaction.user.id != ADMIN_USER_ID:
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=False)
+        
+        try:
+            success, files, timestamp = create_backup()
+            
+            if success:
+                embed = discord.Embed(
+                    title="💾 Backup Created Successfully",
+                    description=f"Timestamp: `{timestamp}`",
+                    color=discord.Color.green()
+                )
+                
+                for file_info in files:
+                    embed.add_field(
+                        name=f"📄 {file_info['original']}",
+                        value=f"Size: {file_info['size_kb']:.2f} KB",
+                        inline=False
+                    )
+                
+                embed.set_footer(text="Backups stored in /backups directory")
+                await interaction.followup.send(embed=embed)
+            else:
+                await interaction.followup.send("❌ No files to backup!", ephemeral=True)
+                
+        except Exception as e:
+            await interaction.followup.send(f"❌ Backup failed: {e}", ephemeral=True)
+    
+    @tree.command(name="listbackups", description="[ADMIN] List all available backups")
+    async def list_backups_command(interaction: discord.Interaction):
+        """List all backups"""
+        if interaction.user.id != ADMIN_USER_ID:
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        
+        backups = list_backups()
+        
+        if not backups:
+            await interaction.response.send_message("📁 No backups found", ephemeral=True)
+            return
+        
+        embed = discord.Embed(
+            title="📦 Available Backups",
+            color=discord.Color.blue()
+        )
+        
+        # Show first 10 backups
+        for backup in backups[:10]:
+            embed.add_field(
+                name=f"📄 {backup['name']}",
+                value=f"Size: {backup['size_kb']:.2f} KB | {backup['modified'].strftime('%Y-%m-%d %H:%M')}",
+                inline=False
+            )
+        
+        if len(backups) > 10:
+            embed.set_footer(text=f"Showing 10 of {len(backups)} backups")
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    
+    @tree.command(name="statsummary", description="[ADMIN] Show current stats summary")
+    async def stats_summary_command(interaction: discord.Interaction):
+        """Show stats summary"""
+        if interaction.user.id != ADMIN_USER_ID:
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        
+        summary = show_stats_summary()
+        
+        embed = discord.Embed(
+            title="📊 Current Stats Summary",
+            color=discord.Color.gold()
+        )
+        
+        # Multi-mode stats
+        modes = ["1v1", "2v2", "3v3", "4v4", "5v5"]
+        mode_text = []
+        for mode in modes:
+            count = summary.get(f"mode_{mode}", 0)
+            mode_text.append(f"**{mode}:** {count} players")
+        
+        if mode_text:
+            embed.add_field(
+                name="🎮 Multi-Mode Stats",
+                value="\n".join(mode_text),
+                inline=False
+            )
+        
+        # Profiles
+        if 'profiles' in summary:
+            embed.add_field(
+                name="👤 Player Profiles",
+                value=f"{summary['profiles']} profiles",
+                inline=False
+            )
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    
+    @tree.command(name="cleanbackups", description="[ADMIN] Clean old backups (keep 10 most recent)")
+    async def clean_backups_command(interaction: discord.Interaction):
+        """Clean old backups"""
+        if interaction.user.id != ADMIN_USER_ID:
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=False)
+        
+        deleted = clean_old_backups(keep_count=10)
+        
+        embed = discord.Embed(
+            title="🧹 Backup Cleanup Complete",
+            description=f"Deleted {deleted} old backup(s)",
+            color=discord.Color.orange()
+        )
+        
+        embed.set_footer(text="Kept 10 most recent backups per file")
+        
+        await interaction.followup.send(embed=embed)
+    
+    print("✅ Railway backup commands loaded")
+    return True
 
 
 if __name__ == "__main__":

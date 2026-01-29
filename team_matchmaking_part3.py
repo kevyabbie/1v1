@@ -180,9 +180,9 @@ class TeamMatchmakingSystem:
             color=discord.Color.green()
         )
         
-        team_a_text = "\n".join([f"{i+1}. {m.mention} {'👑' if i == 0 else ''}" 
+        team_a_text = "\n".join([f"{i+1}. {m.mention}{' (Ketua)' if i == 0 else ''}" 
                                  for i, m in enumerate(team_a)])
-        team_b_text = "\n".join([f"{i+1}. {m.mention} {'👑' if i == 0 else ''}" 
+        team_b_text = "\n".join([f"{i+1}. {m.mention}{' (Ketua)' if i == 0 else ''}" 
                                  for i, m in enumerate(team_b)])
         
         embed.add_field(name="🔵 Team A", value=team_a_text, inline=True)

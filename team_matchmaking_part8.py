@@ -94,33 +94,22 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
             await interaction.response.send_message(embed=embed)
         else:
             await interaction.response.send_message(message, ephemeral=True)
-
-            @tree.command(name="partyname", description="Change your party's name (host only)")
-@app_commands.describe(name="New party name (max 50 characters)")
-async def set_party_name(interaction: discord.Interaction, name: str):
-    """Change the party name - host only"""
-    success, message = party_system.set_party_name(interaction.user, name)
     
-    if success:
-        embed = discord.Embed(
-            title="✅ Party Name Updated!",
-            description=message,
-            color=discord.Color.green()
-        )
-        await interaction.response.send_message(embed=embed)
-    else:
-        await interaction.response.send_message(f"❌ {message}", ephemeral=True)
-```
-
-### Usage:
-Once added, the **party host** can use:
-```
-/partyname <new name>
-```
-
-For example:
-```
-/partyname Epic Gamers
+    @tree.command(name="partyname", description="Change your party's name (host only)")
+    @app_commands.describe(name="New party name (max 50 characters)")
+    async def set_party_name(interaction: discord.Interaction, name: str):
+        """Change the party name - host only"""
+        success, message = party_system.set_party_name(interaction.user, name)
+        
+        if success:
+            embed = discord.Embed(
+                title="✅ Party Name Updated!",
+                description=message,
+                color=discord.Color.green()
+            )
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message(f"❌ {message}", ephemeral=True)
     
     @tree.command(name="partyleave", description="Leave your current party")
     async def leave_party(interaction: discord.Interaction):

@@ -7,7 +7,7 @@ Handles match results with SCORE TRACKING, and slash command registration
 import discord
 from discord import app_commands
 from typing import Optional
-from team_matchmaking_part10_FIXED import TOURNAMENT_WIN_POINTS, TOURNAMENT_LOSS_POINTS
+from team_matchmaking_part10 import TOURNAMENT_WIN_POINTS, TOURNAMENT_LOSS_POINTS
 
 
 class Tournament5v5Results:

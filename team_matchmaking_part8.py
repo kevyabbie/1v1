@@ -28,6 +28,7 @@ from team_matchmaking_part14 import (
     handle_profile_stats_set
 )
 from team_matchmaking_1v1 import Matchmaking1v1System, setup_1v1_commands
+from ghost_player_commands import GhostPlayerSystem, setup_ghost_player_commands
 
 
 def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1v1=None):
@@ -50,6 +51,9 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
     
     # Initialize 1v1 matchmaking system
     matchmaking_1v1_system = Matchmaking1v1System(bot_client, multi_mode_stats)
+    
+    # Initialize ghost player system (DEBUG)
+    ghost_system = GhostPlayerSystem(party_system)
     
     # ==================== PARTY COMMANDS ====================
     
@@ -492,11 +496,17 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
     # Setup 1v1 matchmaking commands
     setup_1v1_commands(tree, matchmaking_1v1_system)
     
+    # ==================== GHOST PLAYER COMMANDS (DEBUG) ====================
+    
+    # Setup ghost player commands
+    setup_ghost_player_commands(tree, ghost_system)
+    
     return {
         'party_system': party_system,
         'team_mm_system': team_mm_system,
         'tournament_5v5_system': tournament_5v5_system,
         'multi_mode_stats': multi_mode_stats,
         'profile_system': profile_system,
-        'matchmaking_1v1_system': matchmaking_1v1_system
+        'matchmaking_1v1_system': matchmaking_1v1_system,
+        'ghost_system': ghost_system
     }

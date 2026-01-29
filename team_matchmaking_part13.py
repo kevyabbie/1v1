@@ -1,13 +1,13 @@
 """
-TEAM MATCHMAKING SYSTEM - PART 13
+TEAM MATCHMAKING SYSTEM - PART 13 (FIXED V2)
 5v5 Tournament Results & Command Setup
-Handles match results, scoring, and slash command registration
+Handles match results with SCORE TRACKING, and slash command registration
 """
 
 import discord
 from discord import app_commands
 from typing import Optional
-from team_matchmaking_part10 import TOURNAMENT_WIN_POINTS, TOURNAMENT_LOSS_POINTS
+from team_matchmaking_part10_FIXED import TOURNAMENT_WIN_POINTS, TOURNAMENT_LOSS_POINTS
 
 
 class Tournament5v5Results:
@@ -15,8 +15,8 @@ class Tournament5v5Results:
     
     @staticmethod
     async def handle_tournament_result(interaction: discord.Interaction, tournament_system, 
-                                      multi_mode_stats, result: str):
-        """Handle tournament round result reporting"""
+                                      multi_mode_stats, team_score: int):
+        """Handle tournament round result reporting with scores (HOSTS ONLY)"""
         thread_id = interaction.channel_id
         
         if thread_id not in tournament_system.active_matches:
@@ -31,50 +31,97 @@ class Tournament5v5Results:
             await interaction.response.send_message("❌ Complete the pick phase first!", ephemeral=True)
             return
         
-        # Must be a team host
+        # Must be a team HOST
         user_team = match.is_team_host(user)
         if not user_team:
             await interaction.response.send_message("❌ Only team hosts can report results!", ephemeral=True)
             return
         
-        # Record claim
+        # Validate score (0-7 points)
+        if team_score < 0 or team_score > 7:
+            await interaction.response.send_message("❌ Score must be between 0 and 7!", ephemeral=True)
+            return
+        
+        # Record claim with score
         if user_team == "A":
-            if match.team_a_claimed:
+            if match.team_a_claimed is not None:
                 await interaction.response.send_message("❌ Your team already reported!", ephemeral=True)
                 return
-            match.team_a_claimed = result
+            match.team_a_claimed = team_score
         else:
-            if match.team_b_claimed:
+            if match.team_b_claimed is not None:
                 await interaction.response.send_message("❌ Your team already reported!", ephemeral=True)
                 return
-            match.team_b_claimed = result
+            match.team_b_claimed = team_score
         
         # Check if both reported
-        if match.team_a_claimed and match.team_b_claimed:
-            # Validate
-            valid = (
-                (match.team_a_claimed == "win" and match.team_b_claimed == "loss") or
-                (match.team_a_claimed == "loss" and match.team_b_claimed == "win")
-            )
+        if match.team_a_claimed is not None and match.team_b_claimed is not None:
+            # Validate - scores must add up to 7
+            total = match.team_a_claimed + match.team_b_claimed
             
-            if not valid:
+            if total != 7:
                 await interaction.response.send_message(
-                    "⚠ **Results don't match!** Please verify who won this round.",
+                    f"⚠️ **Invalid scores!** Scores must add up to 7 points total.\n"
+                    f"**{match.team_a_name}:** {match.team_a_claimed} points\n"
+                    f"**{match.team_b_name}:** {match.team_b_claimed} points\n"
+                    f"**Total:** {total} (should be 7)\n\n"
+                    f"Resetting reports...",
                     ephemeral=False
                 )
                 match.team_a_claimed = None
                 match.team_b_claimed = None
                 return
             
-            # Update scores
-            if match.team_a_claimed == "win":
+            # Determine winner (whoever got more points)
+            if match.team_a_claimed > match.team_b_claimed:
                 match.team_a_score += 1
-            else:
+                winner = "A"
+            elif match.team_b_claimed > match.team_a_claimed:
                 match.team_b_score += 1
+                winner = "B"
+            else:
+                # Tie - both get 0 wins (shouldn't happen with 5 total points, but just in case)
+                winner = None
             
-            # Save round to history
+            # Save round scores to history
             match.save_round_history()
             match.rounds_completed += 1
+            
+            # Show round results
+            embed = discord.Embed(
+                title=f"📊 Round {match.rounds_completed} Complete!",
+                color=discord.Color.green()
+            )
+            
+            embed.add_field(
+                name=f"🔵 {match.team_a_name}",
+                value=f"**+{match.team_a_claimed} points**",
+                inline=True
+            )
+            
+            embed.add_field(
+                name=f"🔴 {match.team_b_name}",
+                value=f"**+{match.team_b_claimed} points**",
+                inline=True
+            )
+            
+            if winner:
+                winner_name = match.get_team_name(winner)
+                embed.add_field(
+                    name="🏆 Round Winner",
+                    value=f"**{winner_name}**",
+                    inline=False
+                )
+            
+            # Show cumulative scores
+            embed.add_field(
+                name="📈 Overall Score",
+                value=f"**{match.team_a_name}:** {match.team_a_score} wins\n"
+                      f"**{match.team_b_name}:** {match.team_b_score} wins",
+                inline=False
+            )
+            
+            await interaction.response.send_message(embed=embed)
             
             # Reset for next round
             match.team_a_claimed = None
@@ -97,11 +144,8 @@ class Tournament5v5Results:
                 match.current_round += 1
                 match.reset_round_state()
                 
-                await interaction.response.send_message(
-                    f"✅ **Round {match.rounds_completed} Complete!**\n"
-                    f"**Score:** {match.team_a_score}-{match.team_b_score}\n"
-                    f"Starting Round {match.current_round}...",
-                    ephemeral=False
+                await match.thread.send(
+                    f"⏭️ **Starting Round {match.current_round}/10...**"
                 )
                 
                 # Start next round
@@ -111,26 +155,28 @@ class Tournament5v5Results:
             # Waiting for other host
             other_team = "B" if user_team == "A" else "A"
             other_host = match.get_team_host(other_team)
+            team_name = match.get_team_name(user_team)
+            
             await interaction.response.send_message(
-                f"✅ Team {user_team} reported a **{result}**.\n"
-                f"Waiting for {other_host.mention} (Team {other_team}) to report...",
+                f"✅ **{team_name}** reported **{team_score} points**.\n"
+                f"Waiting for {other_host.mention} to report their score...",
                 ephemeral=False
             )
     
     @staticmethod
     async def finalize_tournament(interaction, tournament_system, multi_mode_stats, match):
-        """Finalize tournament and award points"""
+        """Finalize tournament and award points with detailed breakdown"""
         # Determine winner
         if match.team_a_score > match.team_b_score:
             winning_team = match.team_a
             losing_team = match.team_b
-            winner_name = "Team A 🔵"
-            loser_name = "Team B 🔴"
+            winner_name = match.team_a_name
+            loser_name = match.team_b_name
         else:
             winning_team = match.team_b
             losing_team = match.team_a
-            winner_name = "Team B 🔴"
-            loser_name = "Team A 🔵"
+            winner_name = match.team_b_name
+            loser_name = match.team_a_name
         
         # Award points to all team members
         for member in winning_team:
@@ -145,42 +191,113 @@ class Tournament5v5Results:
         
         multi_mode_stats.save_stats()
         
+        # Create detailed breakdown from history
+        team_a_round_scores = []
+        team_b_round_scores = []
+        team_a_total_points = 0
+        team_b_total_points = 0
+        
+        for round_data in match.history:
+            round_num = round_data["round"]
+            # Get scores from history (we need to store them)
+            # For now, we'll reconstruct from winner
+            if round_data.get("team_a_points") is not None:
+                team_a_round_scores.append(f"R{round_num}: +{round_data['team_a_points']}")
+                team_b_round_scores.append(f"R{round_num}: +{round_data['team_b_points']}")
+                team_a_total_points += round_data['team_a_points']
+                team_b_total_points += round_data['team_b_points']
+        
         # Create final embed
         embed = discord.Embed(
             title="🏆 5v5 TOURNAMENT COMPLETE!",
             description=f"**{winner_name}** wins the tournament!",
             color=discord.Color.gold()
         )
+        
         embed.add_field(
-            name="Final Score",
-            value=f"```\n{match.team_a_score}-{match.team_b_score}\n```",
-            inline=False
-        )
-        embed.add_field(
-            name="Points",
-            value=f"**{winner_name}:** +{TOURNAMENT_WIN_POINTS} points each\n"
-                  f"**{loser_name}:** {TOURNAMENT_LOSS_POINTS} points each",
-            inline=False
-        )
-        embed.add_field(
-            name="Rounds Played",
-            value=f"{match.rounds_completed}/10 rounds",
+            name="📊 Final Wins",
+            value=f"```\n{match.team_a_name}: {match.team_a_score} wins\n{match.team_b_name}: {match.team_b_score} wins\n```",
             inline=False
         )
         
-        await interaction.response.send_message(embed=embed)
+        # Show round-by-round breakdown if available
+        if team_a_round_scores:
+            embed.add_field(
+                name=f"📈 {match.team_a_name} - Round Scores",
+                value="\n".join(team_a_round_scores) + f"\n**Total: {team_a_total_points} points**",
+                inline=True
+            )
+            
+            embed.add_field(
+                name=f"📈 {match.team_b_name} - Round Scores",
+                value="\n".join(team_b_round_scores) + f"\n**Total: {team_b_total_points} points**",
+                inline=True
+            )
+        
+        # Performance ratings based on average points per round
+        def get_rating(total_points: int, rounds_played: int) -> tuple[str, str]:
+            """Get rating emoji and text based on average points per round
+            Max: 7 points per round (70 total for 10 rounds)
+            Ratings:
+            <3 avg = Bad
+            3-4.9 avg = OK
+            5-5.9 avg = OK
+            6-6.9 avg = Nice  
+            7 avg = Nice
+            """
+            avg = total_points / rounds_played if rounds_played > 0 else 0
+            
+            if avg < 3:
+                return "😞", "how did you fumble this bad bro"
+            elif avg < 6:
+                return "😐", "that was a good match."
+            else:  # avg >= 6
+                return "😛", "great job!!!!!!!!!"
+        
+        team_a_emoji, team_a_rating = get_rating(team_a_total_points, match.rounds_completed)
+        team_b_emoji, team_b_rating = get_rating(team_b_total_points, match.rounds_completed)
+        
+        embed.add_field(
+            name="⚡ Performance Rating",
+            value=f"**{match.team_a_name}:** {team_a_emoji} {team_a_rating} ({team_a_total_points}/{match.rounds_completed * 7} points - avg {team_a_total_points/match.rounds_completed:.1f})\n"
+                  f"**{match.team_b_name}:** {team_b_emoji} {team_b_rating} ({team_b_total_points}/{match.rounds_completed * 7} points - avg {team_b_total_points/match.rounds_completed:.1f})",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="💎 ELO Points Awarded",
+            value=f"**{winner_name}:** +{TOURNAMENT_WIN_POINTS} points per player\n"
+                  f"**{loser_name}:** {TOURNAMENT_LOSS_POINTS} points per player",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="📋 Match Summary",
+            value=f"Rounds Played: {match.rounds_completed}/10",
+            inline=False
+        )
+        
+        # Show winning team
+        winning_members = "\n".join([f"{i+1}. {m.mention}" for i, m in enumerate(winning_team)])
+        embed.add_field(
+            name=f"🏆 {winner_name}",
+            value=winning_members,
+            inline=False
+        )
+        
+        await match.thread.send(embed=embed)
         
         # Clean up
         del tournament_system.active_matches[match.thread.id]
         
-        # Archive thread
-        await match.thread.edit(archived=True)
+        # Archive thread after 1 hour
+        await match.thread.edit(auto_archive_duration=60)
 
 
 def setup_5v5_tournament_commands(tree: app_commands.CommandTree, tournament_system, multi_mode_stats):
     """Setup all 5v5 tournament commands"""
     
-    from team_matchmaking_part12 import Tournament5v5GameLogic
+    from team_matchmaking_part12_FIXED import Tournament5v5GameLogic
     
     @tree.command(name="challenge", description="Challenge another party host to a 5v5 tournament")
     @app_commands.describe(opponent="Party host to challenge")
@@ -192,7 +309,7 @@ def setup_5v5_tournament_commands(tree: app_commands.CommandTree, tournament_sys
     async def accept_challenge_5v5(interaction: discord.Interaction, challenger: discord.Member):
         await tournament_system.accept_challenge(interaction, challenger)
     
-    @tree.command(name="selectmap", description="[5v5] Select map for the round (attacking host)")
+    @tree.command(name="selectmap", description="[5v5] Select map for the round (attacking host only)")
     @app_commands.describe(map_name="Map to play on")
     async def select_map(interaction: discord.Interaction, map_name: str):
         await Tournament5v5GameLogic.handle_map_select(interaction, tournament_system, map_name)
@@ -201,7 +318,7 @@ def setup_5v5_tournament_commands(tree: app_commands.CommandTree, tournament_sys
     async def map_autocomplete(interaction: discord.Interaction, current: str):
         return Tournament5v5GameLogic.get_map_autocomplete(current)
     
-    @tree.command(name="selectkiller", description="[5v5] Select killer player and character (attacking host)")
+    @tree.command(name="selectkiller", description="[5v5] Select killer player and character (attacking host only)")
     @app_commands.describe(
         player_number="Which player will be killer (1-5)",
         killer="Killer character"
@@ -213,7 +330,7 @@ def setup_5v5_tournament_commands(tree: app_commands.CommandTree, tournament_sys
     async def killer_autocomplete(interaction: discord.Interaction, current: str):
         return Tournament5v5GameLogic.get_killer_autocomplete(current)
     
-    @tree.command(name="tournamentban", description="[5v5] Ban a survivor (defending host)")
+    @tree.command(name="tournamentban", description="[5v5] Ban a survivor (defending host only)")
     @app_commands.describe(survivor="Survivor to ban")
     async def tournament_ban(interaction: discord.Interaction, survivor: str):
         await Tournament5v5GameLogic.handle_tournament_ban(interaction, tournament_system, survivor)
@@ -226,7 +343,11 @@ def setup_5v5_tournament_commands(tree: app_commands.CommandTree, tournament_sys
         match = tournament_system.active_matches[thread_id]
         return Tournament5v5GameLogic.get_survivor_ban_autocomplete(match, current)
     
-    @tree.command(name="tournamentpick", description="[5v5] Pick your survivor (defending team)")
+    @tree.command(name="skipban", description="[5v5] Skip remaining bans (defending host only)")
+    async def skip_ban(interaction: discord.Interaction):
+        await Tournament5v5GameLogic.handle_skip_ban(interaction, tournament_system)
+    
+    @tree.command(name="tournamentpick", description="[5v5] Pick your survivor (defending team players)")
     @app_commands.describe(survivor="Survivor to pick")
     async def tournament_pick(interaction: discord.Interaction, survivor: str):
         await Tournament5v5GameLogic.handle_tournament_pick(interaction, tournament_system, survivor)
@@ -239,16 +360,11 @@ def setup_5v5_tournament_commands(tree: app_commands.CommandTree, tournament_sys
         match = tournament_system.active_matches[thread_id]
         return Tournament5v5GameLogic.get_survivor_pick_autocomplete(match, current)
     
-    @tree.command(name="tournamentwon", description="[5v5] Report your team won the round (host only)")
-    async def tournament_won(interaction: discord.Interaction):
+    @tree.command(name="reportscore", description="[5v5] Report your team's score for this round (0-7 points, host only)")
+    @app_commands.describe(score="How many points your team scored (0-7)")
+    async def report_score(interaction: discord.Interaction, score: int):
         await Tournament5v5Results.handle_tournament_result(
-            interaction, tournament_system, multi_mode_stats, "win"
-        )
-    
-    @tree.command(name="tournamentloss", description="[5v5] Report your team lost the round (host only)")
-    async def tournament_loss(interaction: discord.Interaction):
-        await Tournament5v5Results.handle_tournament_result(
-            interaction, tournament_system, multi_mode_stats, "loss"
+            interaction, tournament_system, multi_mode_stats, score
         )
     
     @tree.command(name="tournamentcancel", description="[5v5] Cancel tournament (host only, no penalty)")
@@ -268,9 +384,11 @@ def setup_5v5_tournament_commands(tree: app_commands.CommandTree, tournament_sys
             await interaction.response.send_message("❌ Only team hosts can cancel!", ephemeral=True)
             return
         
+        team_name = match.get_team_name(team)
+        
         embed = discord.Embed(
             title="❌ 5v5 Tournament Cancelled",
-            description=f"Tournament cancelled by {user.mention} (Team {team} Host)",
+            description=f"Tournament cancelled by {user.mention} ({team_name} Host)",
             color=discord.Color.red()
         )
         embed.add_field(

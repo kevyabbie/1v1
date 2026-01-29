@@ -352,6 +352,94 @@ def setup_railway_backup_commands(tree: app_commands.CommandTree, bot_client, ba
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
     
+    @tree.command(name="restorebackup", description="[ADMIN] Restore data from a backup file")
+    @app_commands.describe(backup_filename="Name of the backup file to restore from")
+    async def restore_backup_command(interaction: discord.Interaction, backup_filename: str):
+        """Restore from a backup"""
+        if interaction.user.id != ADMIN_USER_ID:
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=False)
+        
+        try:
+            # Construct full path
+            backup_path = f"backups/{backup_filename}"
+            
+            # Check if file exists
+            if not os.path.exists(backup_path):
+                await interaction.followup.send(
+                    f"❌ Backup file not found: `{backup_filename}`\n"
+                    f"Use `/listbackups` to see available backups.",
+                    ephemeral=True
+                )
+                return
+            
+            # Confirm restoration
+            embed = discord.Embed(
+                title="⚠️ Confirm Restore",
+                description=f"Are you sure you want to restore from `{backup_filename}`?",
+                color=discord.Color.orange()
+            )
+            embed.add_field(
+                name="⚠️ Warning",
+                value="This will **overwrite** current data!\nCurrent data will be backed up as `.pre_restore_backup`",
+                inline=False
+            )
+            embed.set_footer(text="This action cannot be undone automatically")
+            
+            # For now, proceed with restore (in production, you'd want a confirmation button)
+            success = restore_from_backup(backup_path)
+            
+            if success:
+                result_embed = discord.Embed(
+                    title="✅ Restore Complete",
+                    description=f"Successfully restored from `{backup_filename}`",
+                    color=discord.Color.green()
+                )
+                result_embed.add_field(
+                    name="💾 Safety Backup",
+                    value="Previous data saved with `.pre_restore_backup` extension",
+                    inline=False
+                )
+                result_embed.set_footer(text="⚠️ Bot may need to restart to apply changes")
+                
+                await interaction.followup.send(embed=result_embed)
+                
+                # Send notification to backup channel if configured
+                if backup_channel_id > 0:
+                    try:
+                        backup_channel = bot_client.get_channel(backup_channel_id)
+                        if backup_channel:
+                            await backup_channel.send(embed=result_embed)
+                    except Exception as e:
+                        print(f"⚠️  Could not send to backup channel: {e}")
+            else:
+                await interaction.followup.send("❌ Restore failed! Check logs for details.", ephemeral=True)
+                
+        except Exception as e:
+            await interaction.followup.send(f"❌ Restore error: {e}", ephemeral=True)
+    
+    @restorebackup.autocomplete('backup_filename')
+    async def restore_autocomplete(interaction: discord.Interaction, current: str):
+        """Autocomplete for backup filenames"""
+        backup_dir = Path("backups")
+        
+        if not backup_dir.exists():
+            return []
+        
+        backups = sorted(backup_dir.glob("*.json"), reverse=True)
+        
+        # Filter by current input
+        if current:
+            backups = [b for b in backups if current.lower() in b.name.lower()]
+        
+        # Return up to 25 choices
+        return [
+            app_commands.Choice(name=backup.name, value=backup.name)
+            for backup in backups[:25]
+        ]
+    
     @tree.command(name="statsummary", description="[ADMIN] Show current stats summary")
     async def stats_summary_command(interaction: discord.Interaction):
         """Show stats summary"""

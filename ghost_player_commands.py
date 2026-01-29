@@ -215,7 +215,7 @@ def setup_ghost_player_commands(tree: app_commands.CommandTree, ghost_system: Gh
         
         if success:
             embed = discord.Embed(
-                title="Bot Cleared",
+                title="👻 Ghosts Cleared",
                 description=message,
                 color=discord.Color.red()
             )

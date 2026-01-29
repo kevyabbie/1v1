@@ -95,10 +95,10 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
         else:
             await interaction.response.send_message(message, ephemeral=True)
     
-    @tree.command(name="partyname", description="Change your party's name (host only)")
+    @tree.command(name="partyname", description="Change your party's name")
     @app_commands.describe(name="New party name (max 50 characters)")
     async def set_party_name(interaction: discord.Interaction, name: str):
-        """Change the party name - host only"""
+        """Change the party name - anyone in party can use this"""
         success, message = party_system.set_party_name(interaction.user, name)
         
         if success:

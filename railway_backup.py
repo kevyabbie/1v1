@@ -269,8 +269,14 @@ def railway_auto_backup_on_startup():
         return False
 
 
-def setup_railway_backup_commands(tree: app_commands.CommandTree, bot_client):
-    """Setup backup commands for Discord bot"""
+def setup_railway_backup_commands(tree: app_commands.CommandTree, bot_client, backup_channel_id: int = 0):
+    """Setup backup commands for Discord bot
+    
+    Args:
+        tree: Discord command tree
+        bot_client: Discord bot client
+        backup_channel_id: Optional channel ID for backup notifications
+    """
     
     @tree.command(name="backup", description="[ADMIN] Create a backup of all player data")
     async def backup_command(interaction: discord.Interaction):
@@ -300,6 +306,15 @@ def setup_railway_backup_commands(tree: app_commands.CommandTree, bot_client):
                 
                 embed.set_footer(text="Backups stored in /backups directory")
                 await interaction.followup.send(embed=embed)
+                
+                # Send notification to backup channel if configured
+                if backup_channel_id > 0:
+                    try:
+                        backup_channel = bot_client.get_channel(backup_channel_id)
+                        if backup_channel:
+                            await backup_channel.send(embed=embed)
+                    except Exception as e:
+                        print(f"⚠️  Could not send to backup channel: {e}")
             else:
                 await interaction.followup.send("❌ No files to backup!", ephemeral=True)
                 

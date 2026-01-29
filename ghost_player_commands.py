@@ -18,7 +18,7 @@ class GhostPlayer:
         self.id = user_id
         self.display_name = display_name
         self.name = name
-        self.mention = f"@{display_name} (Ghost)"
+        self.mention = f"@{display_name}"
         self.avatar = None
         self.bot = False
     

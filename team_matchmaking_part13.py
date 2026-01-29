@@ -297,7 +297,7 @@ class Tournament5v5Results:
 def setup_5v5_tournament_commands(tree: app_commands.CommandTree, tournament_system, multi_mode_stats):
     """Setup all 5v5 tournament commands"""
     
-    from team_matchmaking_part12_FIXED import Tournament5v5GameLogic
+    from team_matchmaking_part12 import Tournament5v5GameLogic
     
     @tree.command(name="challenge", description="Challenge another party host to a 5v5 tournament")
     @app_commands.describe(opponent="Party host to challenge")

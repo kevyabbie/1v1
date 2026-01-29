@@ -8,7 +8,7 @@ Updated to work with score-based results system
 import discord
 from discord import app_commands
 from typing import Optional, Dict
-from team_matchmaking_part10_FIXED_V2 import (
+from team_matchmaking_part10 import (
     Tournament5v5Match, 
     MAPS, 
     KILLERS, 

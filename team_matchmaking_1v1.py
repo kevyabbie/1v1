@@ -57,11 +57,19 @@ class Match1v1:
         return [item for item in all_items if item not in banned]
     
     def get_current_player_role(self) -> str:
+        """Get current player's role (killer or survivor)
+        Round 1: Player1 killer, Player2 survivor
+        Round 2: Player1 survivor, Player2 killer
+        Round 3: Player1 killer, Player2 survivor
+        """
         if self.current_round == 1:
+            # Round 1: player1 is killer
             return "killer" if self.current_turn == self.player1 else "survivor"
         elif self.current_round == 2:
+            # Round 2: player2 is killer (swap roles)
             return "survivor" if self.current_turn == self.player1 else "killer"
-        else:
+        else:  # Round 3
+            # Round 3: player1 is killer again
             return "killer" if self.current_turn == self.player1 else "survivor"
 
 
@@ -372,11 +380,15 @@ class Matchmaking1v1System:
             match.current_turn = None
             
             await match.thread.send(
-                f"🎮 **PICKS COMPLETE!**\n\n"
-                f"**{match.player1.display_name}'s picks:** {', '.join(match.player1_picks)}\n"
-                f"**{match.player2.display_name}'s picks:** {', '.join(match.player2_picks)}\n\n"
-                f"Play **Round {match.current_round}** now!\n"
-                f"After the round, use `/iwon` or `/ilose` to report the result."
+                f"**Score: {match.player1_score}-{match.player2_score} | Round: {match.current_round}/3**\n\n"
+                f"🎮 **ROUND RESULTS**\n"
+                f"Play Round {match.current_round} and use `/iwon` or `/ilose` to report results!\n\n"
+                f"**Banned Items**\n"
+                f"**{match.player1.display_name}:** {', '.join(match.player1_bans) if match.player1_bans else 'None'}\n"
+                f"**{match.player2.display_name}:** {', '.join(match.player2_bans) if match.player2_bans else 'None'}\n\n"
+                f"**Current Picks**\n"
+                f"**{match.player1.display_name}:** {', '.join(match.player1_picks)}\n"
+                f"**{match.player2.display_name}:** {', '.join(match.player2_picks)}"
             )
         else:
             match.current_turn = match.player2 if is_player1 else match.player1

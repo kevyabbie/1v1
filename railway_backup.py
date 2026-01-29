@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-RAILWAY-COMPATIBLE BACKUP SYSTEM WITH USER NOTIFICATIONS
+RAILWAY-COMPATIBLE BACKUP SYSTEM WITH USER NOTIFICATIONS - FIXED RESTORE
 - Automatically backs up on restart (when you push to GitHub)
 - Sends notification to all users in the channel
 - Works with ephemeral storage
+- FIXED: Restore command now works properly with message replies
 """
 
 import json
@@ -128,7 +129,7 @@ class RailwayBackupSystem:
                     inline=False
                 )
             
-            embed.set_footer(text="Download these files to restore data later")
+            embed.set_footer(text="To restore: Reply to this message and use /restore")
             
             # Upload to Discord
             await channel.send(
@@ -341,26 +342,41 @@ def setup_railway_backup_commands(tree, client, backup_channel_id: int):
             )
     
     @tree.command(name="restore", description="[ADMIN] Restore from backup (reply to backup message)")
+    @discord.app_commands.describe(message_id="Message ID of the backup (right-click message > Copy ID)")
     @discord.app_commands.checks.has_permissions(administrator=True)
-    async def restore_backup(interaction: discord.Interaction):
-        """Restore from backup message"""
+    async def restore_backup(interaction: discord.Interaction, message_id: str):
+        """Restore from backup message using message ID"""
         await interaction.response.defer(ephemeral=True)
         
         try:
-            # Check if this is a reply
-            if not interaction.message or not interaction.message.reference:
+            # Convert message_id to int
+            try:
+                msg_id = int(message_id)
+            except ValueError:
                 await interaction.followup.send(
-                    "❌ Please use this command as a reply to a backup message!",
+                    "❌ Invalid message ID! Right-click the backup message and select 'Copy ID'",
                     ephemeral=True
                 )
                 return
             
-            # Get the message being replied to
-            replied_message = await interaction.channel.fetch_message(
-                interaction.message.reference.message_id
-            )
+            # Fetch the message
+            try:
+                backup_message = await interaction.channel.fetch_message(msg_id)
+            except discord.NotFound:
+                await interaction.followup.send(
+                    "❌ Message not found! Make sure you're using this command in the same channel as the backup message.",
+                    ephemeral=True
+                )
+                return
+            except discord.Forbidden:
+                await interaction.followup.send(
+                    "❌ Cannot access that message!",
+                    ephemeral=True
+                )
+                return
             
-            if not replied_message.attachments:
+            # Check if message has attachments
+            if not backup_message.attachments:
                 await interaction.followup.send(
                     "❌ That message has no backup files!",
                     ephemeral=True
@@ -373,7 +389,7 @@ def setup_railway_backup_commands(tree, client, backup_channel_id: int):
                 ephemeral=True
             )
             
-            success = await backup_system.restore_from_message(replied_message)
+            success = await backup_system.restore_from_message(backup_message)
             
             if success:
                 await interaction.followup.send(
@@ -548,7 +564,7 @@ async def railway_auto_backup_on_startup(client, backup_channel_id: int, notific
 if __name__ == "__main__":
     print("""
 ╔═══════════════════════════════════════════════════════════════════╗
-║       RAILWAY BACKUP SYSTEM WITH USER NOTIFICATIONS              ║
+║       RAILWAY BACKUP SYSTEM - FIXED RESTORE COMMAND              ║
 ╚═══════════════════════════════════════════════════════════════════╝
 
 FEATURES:
@@ -556,22 +572,16 @@ FEATURES:
   ✅ Sends notification to ALL users in channel
   ✅ Uploads backups to Discord (survives Railway restarts)
   ✅ Manual backups via /backup command
-  ✅ Restore via /restore command
+  ✅ FIXED: Restore via /restore <message_id> command
   ✅ Single user backups via /backupuser command
 
-WHAT HAPPENS ON RESTART:
-  1. Bot detects restart (new GitHub commit deployed)
-  2. Creates automatic backup of all data
-  3. Uploads backup files to Discord channel
-  4. Sends notification mentioning ALL users
-  5. Users see: "Bot restarted & your data is backed up!"
+HOW TO RESTORE NOW:
+  1. Find the backup message in your backup channel
+  2. Right-click the backup message > Copy ID
+  3. Use: /restore message_id:<paste_the_id_here>
+  
+EXAMPLE:
+  /restore message_id:1234567890123456789
 
-SETUP:
-  await railway_auto_backup_on_startup(
-      client,
-      backup_channel_id=1234567890,
-      notification_channel_id=9876543210  # Where to notify users
-  )
-
-If notification_channel_id is not provided, notifications go to backup channel.
+This fixes the reply detection issue!
     """)

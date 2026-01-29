@@ -184,12 +184,15 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
             return
         
         embed = discord.Embed(
-            title=f"👥 Party Members ({party.get_size()}/{party.max_size})",
-            description=f"**Host:** {party.host.mention}",
+            title=f"👥 {party.party_name}",
+            description=f"**Party Size:** {party.get_size()}/{party.max_size}",
             color=discord.Color.blue()
         )
         
-        members_text = "\n".join([f"{i+1}. {m.mention}" for i, m in enumerate(party.members)])
+        members_text = "\n".join([
+            f"{i+1}. {m.mention}{' (Ketua)' if i == 0 else ''}"
+            for i, m in enumerate(party.members)
+        ])
         embed.add_field(name="Members", value=members_text, inline=False)
         
         if party.pending_invites:

@@ -27,7 +27,7 @@ COPY team_matchmaking_part6.py .
 COPY team_matchmaking_part7.py .
 COPY team_matchmaking_part8.py .
 COPY team_matchmaking_part9.py .
-COPY team_matchmaking_part10.py .
+COPY team_matchmaking_part10_FIXED_V2.py .
 COPY team_matchmaking_part11.py .
 COPY team_matchmaking_part12.py .
 COPY team_matchmaking_part13.py .

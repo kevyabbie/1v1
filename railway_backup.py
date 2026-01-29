@@ -250,22 +250,76 @@ def clean_old_backups(keep_count: int = 10):
 ADMIN_USER_ID = 822110342724190258
 
 
-def railway_auto_backup_on_startup():
+async def railway_auto_backup_on_startup(bot_client, backup_channel_id: int, notification_channel_id: int = 0):
     """
     Automatically create a backup when the bot starts
     This ensures there's always a recent backup available
+    
+    Args:
+        bot_client: Discord bot client
+        backup_channel_id: Channel ID for backup notifications
+        notification_channel_id: Channel ID for user notifications (optional)
     """
     try:
         print("\n🔄 Creating automatic startup backup...")
         success, files, timestamp = create_backup()
+        
         if success:
             print(f"✅ Startup backup created: {timestamp}")
+            
+            # Send notification to backup channel
+            if backup_channel_id > 0:
+                try:
+                    backup_channel = bot_client.get_channel(backup_channel_id)
+                    if backup_channel:
+                        embed = discord.Embed(
+                            title="🔄 Startup Backup Created",
+                            description=f"Automatic backup created at bot startup\nTimestamp: `{timestamp}`",
+                            color=discord.Color.blue()
+                        )
+                        
+                        for file_info in files:
+                            embed.add_field(
+                                name=f"📄 {file_info['original']}",
+                                value=f"Size: {file_info['size_kb']:.2f} KB",
+                                inline=False
+                            )
+                        
+                        embed.set_footer(text="Bot is now online and ready!")
+                        await backup_channel.send(embed=embed)
+                        print(f"✅ Backup notification sent to channel {backup_channel_id}")
+                except Exception as e:
+                    print(f"⚠️  Could not send backup notification: {e}")
+            
+            # Send user notification to notification channel if different
+            if notification_channel_id > 0 and notification_channel_id != backup_channel_id:
+                try:
+                    notif_channel = bot_client.get_channel(notification_channel_id)
+                    if notif_channel:
+                        embed = discord.Embed(
+                            title="🤖 Bot Online",
+                            description="Matchmaking bot is now online and ready!",
+                            color=discord.Color.green()
+                        )
+                        embed.add_field(
+                            name="✅ Systems Ready",
+                            value="• 1v1 Matchmaking\n• 2v2/3v3/4v4 Teams\n• 5v5 Tournaments\n• Profile System\n• Backup System",
+                            inline=False
+                        )
+                        embed.set_footer(text=f"Startup backup created: {timestamp}")
+                        await notif_channel.send(embed=embed)
+                        print(f"✅ User notification sent to channel {notification_channel_id}")
+                except Exception as e:
+                    print(f"⚠️  Could not send user notification: {e}")
+            
             return True
         else:
             print("⚠️  No files to backup on startup")
             return False
     except Exception as e:
         print(f"❌ Startup backup failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
@@ -354,7 +408,7 @@ def setup_railway_backup_commands(tree: app_commands.CommandTree, bot_client, ba
     
     @tree.command(name="restorebackup", description="[ADMIN] Restore data from a backup file")
     @app_commands.describe(backup_filename="Name of the backup file to restore from")
-    async def restore_backup_command(interaction: discord.Interaction, backup_filename: str):
+    async def restorebackup(interaction: discord.Interaction, backup_filename: str):
         """Restore from a backup"""
         if interaction.user.id != ADMIN_USER_ID:
             await interaction.response.send_message("❌ Admin only!", ephemeral=True)

@@ -1,13 +1,14 @@
 """
-TEAM MATCHMAKING SYSTEM - PART 11
+TEAM MATCHMAKING SYSTEM - PART 11 (FIXED V2)
 5v5 Tournament Matchmaking & Game Flow
-Handles /challenge system and phase progression
+Handles /challenge system and phase progression with thread creation
+Updated to work with score-based results system
 """
 
 import discord
 from discord import app_commands
 from typing import Optional, Dict
-from team_matchmaking_part10 import (
+from team_matchmaking_part10_FIXED_V2 import (
     Tournament5v5Match, 
     MAPS, 
     KILLERS, 
@@ -95,15 +96,18 @@ class Tournament5v5System:
             color=discord.Color.orange()
         )
         
-        # Show both teams
-        team_a_text = "\n".join([f"{i+1}. {m.mention}" for i, m in enumerate(party.members)])
-        team_b_text = "\n".join([f"{i+1}. {m.mention}" for i, m in enumerate(opponent_party.members)])
+        # Show both teams with party names
+        team_a_text = f"**Party: {party.party_name}**\n"
+        team_a_text += "\n".join([f"{i+1}. {m.mention} {'👑 (Host)' if i == 0 else ''}" for i, m in enumerate(party.members)])
+        
+        team_b_text = f"**Party: {opponent_party.party_name}**\n"
+        team_b_text += "\n".join([f"{i+1}. {m.mention} {'👑 (Host)' if i == 0 else ''}" for i, m in enumerate(opponent_party.members)])
         
         embed.add_field(name="🔵 Team A (Challenger)", value=team_a_text, inline=True)
         embed.add_field(name="🔴 Team B (Challenged)", value=team_b_text, inline=True)
         embed.add_field(
             name="Format",
-            value="**10 rounds** | Best of 10 wins\nHosts select maps and killer players",
+            value="**10 rounds** | Best of 10 wins\nHosts select maps, bans, and killer players\nPlayers pick their survivors\n**Score each round: 0-5 points**",
             inline=False
         )
         embed.set_footer(text=f"{opponent.name}, use /acceptchallenge @{user.name} to accept!")
@@ -148,41 +152,48 @@ class Tournament5v5System:
         await self.create_tournament_match(
             interaction,
             list(challenger_party.members),
-            list(accepter_party.members)
+            list(accepter_party.members),
+            challenger_party.party_name,
+            accepter_party.party_name
         )
         
         # Remove challenge
         del self.pending_challenges[challenger.id]
     
     async def create_tournament_match(self, interaction: discord.Interaction, 
-                                     team_a: list, team_b: list):
-        """Create a 5v5 tournament match"""
-        match = Tournament5v5Match(team_a, team_b, interaction.channel)
+                                     team_a: list, team_b: list,
+                                     team_a_name: str, team_b_name: str):
+        """Create a 5v5 tournament match with proper thread"""
+        match = Tournament5v5Match(team_a, team_b, team_a_name, team_b_name, interaction.channel)
         
-        # Create embed
+        # Create starting embed
         embed = discord.Embed(
             title="⚔️ 5v5 TOURNAMENT STARTING!",
-            description="**10 rounds** of intense 1v5 combat!",
+            description=f"**{team_a_name}** vs **{team_b_name}**\n\n10 rounds of intense 1v5 combat!\n**Each round scored 0-5 points**",
             color=discord.Color.gold()
         )
         
         team_a_text = "\n".join([f"{i+1}. {m.mention} {'👑' if i == 0 else ''}" for i, m in enumerate(team_a)])
         team_b_text = "\n".join([f"{i+1}. {m.mention} {'👑' if i == 0 else ''}" for i, m in enumerate(team_b)])
         
-        embed.add_field(name="🔵 Team A", value=team_a_text, inline=True)
-        embed.add_field(name="🔴 Team B", value=team_b_text, inline=True)
+        embed.add_field(name=f"🔵 {team_a_name}", value=team_a_text, inline=True)
+        embed.add_field(name=f"🔴 {team_b_name}", value=team_b_text, inline=True)
         
         await interaction.response.send_message(embed=embed)
         message = await interaction.original_response()
         
-        # Create thread
+        # Create thread with party names
         thread = await message.create_thread(
-            name=f"⚔️ 5v5 TOURNAMENT: {team_a[0].display_name} vs {team_b[0].display_name}",
+            name=f"⚔️ {team_a_name} vs {team_b_name}",
             auto_archive_duration=120
         )
         
         match.thread = thread
         self.active_matches[thread.id] = match
+        
+        # Mention all players in thread
+        all_players = " ".join([m.mention for m in team_a + team_b])
+        await thread.send(f"📢 {all_players}\n\nWelcome to the tournament! Let's begin!")
         
         # Start first round
         await self.start_round(match)
@@ -191,28 +202,29 @@ class Tournament5v5System:
         """Start a new round"""
         thread = match.thread
         
-        match.attacking_team = match.get_attacking_team()
+        attacking_team = match.get_attacking_team()
+        defending_team = match.get_defending_team()
         attacking_host = match.get_attacking_host()
         defending_host = match.get_defending_host()
         
         # Announce round
         embed = discord.Embed(
             title=f"🎮 ROUND {match.current_round}/10",
-            description=f"**Score:** {match.team_a_score} - {match.team_b_score}",
+            description=f"**Score:** {match.team_a_name} {match.team_a_score} - {match.team_b_score} {match.team_b_name}",
             color=discord.Color.blue()
         )
         
-        attacking_team_name = "Team A 🔵" if match.attacking_team == "A" else "Team B 🔴"
-        defending_team_name = "Team B 🔴" if match.attacking_team == "A" else "Team A 🔵"
+        attacking_team_name = match.get_team_name(attacking_team)
+        defending_team_name = match.get_team_name(defending_team)
         
         embed.add_field(
             name="⚔️ Attacking (Killer)",
-            value=f"{attacking_team_name}\nHost: {attacking_host.mention}",
+            value=f"**{attacking_team_name}**\nHost: {attacking_host.mention}",
             inline=True
         )
         embed.add_field(
             name="🛡️ Defending (Survivors)",
-            value=f"{defending_team_name}\nHost: {defending_host.mention}",
+            value=f"**{defending_team_name}**\nHost: {defending_host.mention}",
             inline=True
         )
         embed.add_field(
@@ -254,25 +266,25 @@ class Tournament5v5System:
             "results": "📊 AWAITING RESULTS"
         }.get(match.current_phase, "Unknown")
         
-        embed.description = f"**Phase:** {phase_text}\n**Score:** {match.team_a_score}-{match.team_b_score}"
+        embed.description = f"**Phase:** {phase_text}\n**Score:** {match.team_a_name} {match.team_a_score} - {match.team_b_score} {match.team_b_name}"
         
         # Show round info
         if match.selected_map:
             embed.add_field(name="🗺️ Map", value=match.selected_map, inline=True)
         
         if match.selected_killer_character:
-            attacking_members = match.get_team_members(match.attacking_team)
+            attacking_members = match.get_team_members(match.get_attacking_team())
             killer_player = attacking_members[match.selected_killer_player_index]
             embed.add_field(
-                name="Killer",
-                value=f"{killer_player.mention}\n{match.selected_killer_character}",
+                name="⚔️ Killer",
+                value=f"Player {match.selected_killer_player_index + 1}: {killer_player.mention}\n**{match.selected_killer_character}**",
                 inline=True
             )
         
         if match.banned_survivors:
             embed.add_field(
                 name="🚫 Banned Survivors",
-                value=", ".join(match.banned_survivors),
+                value=", ".join(match.banned_survivors) + f" ({len(match.banned_survivors)}/{2})",
                 inline=False
             )
         
@@ -281,11 +293,11 @@ class Tournament5v5System:
             picks_text = []
             for i in range(5):
                 player = defending_members[i]
-                pick = match.round_survivor_picks.get(i, "❓")
-                picks_text.append(f"{i+1}. {player.display_name}: {pick}")
+                pick = match.round_survivor_picks.get(i, "❌")
+                picks_text.append(f"Player {i+1} ({player.display_name}): {pick}")
             
             embed.add_field(
-                name="Survivor Picks",
+                name=f"🛡️ Survivor Picks ({len(match.round_survivor_picks)}/5)",
                 value="\n".join(picks_text),
                 inline=False
             )

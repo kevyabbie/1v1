@@ -320,8 +320,8 @@ async def create_visual_leaderboard_embed(mode: str, leaderboard: list,
     if total_games > 0:
         winrate = (top_player_stats.wins / total_games) * 100
     
-    top_player_showcase += f"**ELO:** {top_player_stats.points} 🌟 || "
-    top_player_showcase += f"**WIN:** {top_player_stats.wins} ✅ || "
+    top_player_showcase += f"**ELO:** {top_player_stats.points} 🌟 "
+    top_player_showcase += f"**WIN:** {top_player_stats.wins} ✅ "
     top_player_showcase += f"**LOSE:** {top_player_stats.losses} ❌\n"
     top_player_showcase += f"**Win Rate:** {winrate:.1f}%\n\n"
     

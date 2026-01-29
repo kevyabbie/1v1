@@ -15,7 +15,8 @@ from team_matchmaking_part7 import (
     MultiModeStatsSystem, 
     create_stats_embed, 
     create_multi_mode_stats_embed,
-    create_leaderboard_embed
+    create_leaderboard_embed,
+    create_visual_leaderboard_embed
 )
 from team_matchmaking_part11 import Tournament5v5System
 from team_matchmaking_part13 import setup_5v5_tournament_commands
@@ -332,7 +333,29 @@ def setup_all_commands(bot_client, tree: app_commands.CommandTree, matchmaking_1
     ])
     async def leaderboard(interaction: discord.Interaction, mode: str):
         leaderboard_data = multi_mode_stats.get_leaderboard(mode, limit=10)
-        embed = create_leaderboard_embed(mode, leaderboard_data)
+        
+        if not leaderboard_data:
+            await interaction.response.send_message(
+                f"📊 No players have competed in {mode.upper()} yet!",
+                ephemeral=True
+            )
+            return
+        
+        # Check if #1 player has a profile with banner
+        top_player = leaderboard_data[0]
+        top_profile = profile_system.profiles.get(top_player.user_id)
+        
+        # Create enhanced embed if top player has banner, otherwise simple
+        if top_profile and top_profile.banner_url:
+            embed = await create_visual_leaderboard_embed(
+                mode, 
+                leaderboard_data, 
+                profile_system, 
+                interaction.guild
+            )
+        else:
+            embed = create_leaderboard_embed(mode, leaderboard_data)
+        
         await interaction.response.send_message(embed=embed)
     
     # ==================== PROFILE CUSTOMIZATION COMMANDS ====================

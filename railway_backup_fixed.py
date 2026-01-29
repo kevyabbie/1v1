@@ -398,10 +398,14 @@ def setup_railway_backup_commands(tree, client, backup_channel_id: int):
                     ephemeral=True
                 )
             else:
-                await interaction.followup.send(
-                    "❌ Restore failed. Check bot logs.",
-                    ephemeral=True
-                )
+                # Give more detailed error
+                if not backup_message.attachments:
+                    error_msg = "❌ No backup files found in that message!"
+                else:
+                    attachment_names = [a.filename for a in backup_message.attachments]
+                    error_msg = f"❌ Restore failed!\n**Files found:** {', '.join(attachment_names)}\n**Expected:** Files with 'multi_mode_stats', 'player_profiles', or 'player_stats_legacy' in the name."
+                
+                await interaction.followup.send(error_msg, ephemeral=True)
         
         except Exception as e:
             await interaction.followup.send(

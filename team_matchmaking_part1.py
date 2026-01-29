@@ -74,14 +74,11 @@ class PartySystem:
         self.user_party_map[host.id] = host.id
         return True, f"✅ Party created: **{party.party_name}**\nUse `/partyinvite @user` to invite members."
     
-    def set_party_name(self, host: discord.Member, name: str) -> Tuple[bool, str]:
-        """Set party name (host only)"""
-        party = self.parties.get(host.id)
+    def set_party_name(self, user: discord.Member, name: str) -> Tuple[bool, str]:
+        """Set party name (anyone in party can change it)"""
+        party = self.get_user_party(user)
         if not party:
-            return False, "You don't have a party! Use `/party` to create one."
-        
-        if not party.is_host(host):
-            return False, "Only the host can change the party name!"
+            return False, "You're not in a party! Use `/party` to create one."
         
         if not party.set_party_name(name):
             return False, "Party name too long! (Max 50 characters)"

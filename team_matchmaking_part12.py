@@ -7,7 +7,7 @@ ONLY HOSTS can select maps and bans. ALL PLAYERS can pick survivors.
 
 import discord
 from discord import app_commands
-from team_matchmaking_part10_FIXED import (
+from team_matchmaking_part10 import (
     MAPS, KILLERS, SURVIVORS,
     MAP_KILLER_RECOMMENDATIONS,
     KILLER_BAN_RECOMMENDATIONS,

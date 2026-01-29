@@ -166,7 +166,7 @@ def setup_ghost_player_commands(tree: app_commands.CommandTree, ghost_system: Gh
             party = ghost_system.party_system.get_user_party(interaction.user)
             if party:
                 members_list = "\n".join([
-                    f"{i+1}. {m.display_name} {'👑' if i == 0 else ''} {'👻' if hasattr(m, 'display_name') and m.display_name.startswith('Ghost_') else ''}"
+                    f"{i+1}. {m.display_name}{' (Ketua)' if i == 0 else ''}"
                     for i, m in enumerate(party.members)
                 ])
                 embed.add_field(
@@ -195,7 +195,7 @@ def setup_ghost_player_commands(tree: app_commands.CommandTree, ghost_system: Gh
             party = ghost_system.party_system.get_user_party(interaction.user)
             if party:
                 members_list = "\n".join([
-                    f"{i+1}. {m.display_name}{' (Ketua)' if i == 0 else ''} {' (fucking idiot)' if hasattr(m, 'display_name') and m.display_name.startswith('Ghost_') else ''}"
+                    f"{i+1}. {m.display_name}{' (Ketua)' if i == 0 else ''}"
                     for i, m in enumerate(party.members)
                 ])
                 embed.add_field(
@@ -223,7 +223,7 @@ def setup_ghost_player_commands(tree: app_commands.CommandTree, ghost_system: Gh
             party = ghost_system.party_system.get_user_party(interaction.user)
             if party:
                 members_list = "\n".join([
-                    f"{i+1}. {m.display_name} {'👑' if i == 0 else ''}"
+                    f"{i+1}. {m.display_name}{' (Ketua)' if i == 0 else ''}"
                     for i, m in enumerate(party.members)
                 ])
                 embed.add_field(

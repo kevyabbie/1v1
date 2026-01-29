@@ -185,7 +185,7 @@ class Tournament5v5System:
         # Create thread with party names
         thread = await message.create_thread(
             name=f"⚔️ {team_a_name} vs {team_b_name}",
-            auto_archive_duration=120
+            auto_archive_duration=1440
         )
         
         match.thread = thread
